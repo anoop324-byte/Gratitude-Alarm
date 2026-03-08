@@ -33,6 +33,7 @@ interface Alarm {
   minutes: number;
   ampm: string;
   enabled: boolean;
+  repeat: boolean; // true = daily, false = once
   notificationId?: string;
 }
 
@@ -46,6 +47,7 @@ export default function Index() {
   const [manualHours, setManualHours] = useState('10');
   const [manualMinutes, setManualMinutes] = useState('00');
   const [manualAMPM, setManualAMPM] = useState<'AM' | 'PM'>('AM');
+  const [repeatAlarm, setRepeatAlarm] = useState(false);
 
   useEffect(() => {
     requestPermissions();
@@ -94,9 +96,13 @@ export default function Index() {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
         const loadedAlarms: Alarm[] = JSON.parse(stored);
-        const updatedAlarms = loadedAlarms.map(alarm =>
-          alarm.id === alarmId ? { ...alarm, enabled: false } : alarm
-        );
+        const updatedAlarms = loadedAlarms.map(alarm => {
+          // Only disable non-repeating alarms
+          if (alarm.id === alarmId && !alarm.repeat) {
+            return { ...alarm, enabled: false };
+          }
+          return alarm;
+        });
         await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedAlarms));
         setAlarms(updatedAlarms);
       }
@@ -152,6 +158,18 @@ export default function Index() {
       scheduledTime.setDate(scheduledTime.getDate() + 1);
     }
 
+    const trigger = alarm.repeat
+      ? {
+          // Daily repeat at the same time
+          hour: hours24,
+          minute: alarm.minutes,
+          repeats: true,
+        }
+      : {
+          // One-time alarm
+          date: scheduledTime,
+        };
+
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Gratitude Reminder',
@@ -160,9 +178,7 @@ export default function Index() {
         sound: null,
         vibrate: [0, 500],
       },
-      trigger: {
-        date: scheduledTime,
-      },
+      trigger,
     });
 
     return notificationId;
@@ -192,6 +208,7 @@ export default function Index() {
         minutes,
         ampm,
         enabled: true,
+        repeat: repeatAlarm,
       };
 
       try {
@@ -211,11 +228,12 @@ export default function Index() {
       await saveAlarms(updatedAlarms);
       setModalVisible(false);
       
-      // Reset to current time
+      // Reset to current time and default repeat setting
       const now = new Date();
       setManualHours(String((now.getHours() % 12) || 12));
       setManualMinutes(String(now.getMinutes()).padStart(2, '0'));
       setManualAMPM(now.getHours() >= 12 ? 'PM' : 'AM');
+      setRepeatAlarm(false);
     } catch (error) {
       console.error('Error adding alarm:', error);
       Alert.alert('Error', 'Failed to add alarm. Please try again.');
@@ -304,6 +322,9 @@ export default function Index() {
         <Text style={[styles.alarmTime, !item.enabled && styles.disabledText]}>
           {item.time}
         </Text>
+        {item.repeat && (
+          <Text style={styles.repeatBadge}>Daily</Text>
+        )}
       </View>
       <View style={styles.alarmRight}>
         <TouchableOpacity
@@ -328,16 +349,26 @@ export default function Index() {
       
       <View style={styles.header}>
         <View style={styles.logoContainer}>
-          <Ionicons name="notifications-outline" size={28} color="#6200EA" />
+          <View style={styles.logoIcon}>
+            <Ionicons name="time-outline" size={24} color="#FFF" />
+            <View style={{ position: 'absolute', bottom: 8, right: 8 }}>
+              <Ionicons name="radio-button-on" size={12} color="#FFF" />
+            </View>
+          </View>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Gratitude Reminder</Text>
+            <Text style={styles.headerSubtitle}>Silent vibration alarms</Text>
+          </View>
         </View>
-        <Text style={styles.headerTitle}>Gratitude Reminder</Text>
       </View>
 
       {alarms.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="alarm-outline" size={60} color="#444" />
-          <Text style={styles.emptyText}>No alarms</Text>
-          <Text style={styles.emptySubtext}>Tap + to add</Text>
+          <View style={styles.emptyIcon}>
+            <Ionicons name="alarm-outline" size={48} color="#0A7EA4" />
+          </View>
+          <Text style={styles.emptyText}>No alarms yet</Text>
+          <Text style={styles.emptySubtext}>Tap the + button below to create your first reminder</Text>
         </View>
       ) : (
         <FlatList
@@ -426,6 +457,28 @@ export default function Index() {
               </View>
             </View>
 
+            <View style={styles.repeatContainer}>
+              <Text style={styles.repeatLabel}>Repeat</Text>
+              <View style={styles.repeatOptions}>
+                <TouchableOpacity
+                  style={[styles.repeatButton, !repeatAlarm && styles.repeatButtonActive]}
+                  onPress={() => setRepeatAlarm(false)}
+                >
+                  <Text style={[styles.repeatButtonText, !repeatAlarm && styles.repeatButtonTextActive]}>
+                    Once
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.repeatButton, repeatAlarm && styles.repeatButtonActive]}
+                  onPress={() => setRepeatAlarm(true)}
+                >
+                  <Text style={[styles.repeatButtonText, repeatAlarm && styles.repeatButtonTextActive]}>
+                    Daily
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
@@ -458,29 +511,40 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#F5F7FA',
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#000',
+    paddingTop: Platform.OS === 'ios' ? 60 : 50,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    backgroundColor: '#0A7EA4',
+  },
+  logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  logoContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#1A1A1A',
+  logoIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerContent: {
+    flex: 1,
+  },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 24,
+    fontWeight: '700',
     color: '#FFF',
+    letterSpacing: 0.5,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 2,
   },
   emptyState: {
     flex: 1,
@@ -488,98 +552,137 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
+  emptyIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#E8F4F8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   emptyText: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 12,
+    fontSize: 18,
+    color: '#5F6368',
+    fontWeight: '600',
+    marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: 13,
-    color: '#444',
-    marginTop: 4,
+    fontSize: 14,
+    color: '#9AA0A6',
+    textAlign: 'center',
   },
   alarmList: {
-    padding: 16,
+    padding: 20,
   },
   alarmItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 10,
+    backgroundColor: '#FFF',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#0A7EA4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   alarmLeft: {
     flex: 1,
   },
   alarmTime: {
-    fontSize: 28,
-    fontWeight: '300',
-    color: '#FFF',
+    fontSize: 32,
+    fontWeight: '600',
+    color: '#202124',
+    letterSpacing: -0.5,
+  },
+  repeatBadge: {
+    fontSize: 12,
+    color: '#0A7EA4',
+    marginTop: 4,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   disabledText: {
-    color: '#444',
+    color: '#DADCE0',
   },
   alarmRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   toggle: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
+    width: 52,
+    height: 30,
+    borderRadius: 15,
     padding: 2,
     justifyContent: 'center',
   },
   toggleOff: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#DADCE0',
   },
   toggleOn: {
-    backgroundColor: '#6200EA',
+    backgroundColor: '#0A7EA4',
   },
   toggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#FFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   toggleThumbOn: {
     alignSelf: 'flex-end',
   },
   deleteButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 8,
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#6200EA',
+    bottom: 28,
+    right: 28,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#0A7EA4',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
+    elevation: 6,
+    shadowColor: '#0A7EA4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    width: '80%',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 20,
+    width: '88%',
+    maxWidth: 400,
+    backgroundColor: '#FFF',
+    borderRadius: 24,
+    padding: 28,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 20,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#202124',
+    marginBottom: 24,
     textAlign: 'center',
   },
   timeInputContainer: {
@@ -589,80 +692,132 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
   },
   inputGroup: {
     alignItems: 'center',
   },
   inputLabel: {
-    fontSize: 11,
-    color: '#999',
-    marginBottom: 4,
+    fontSize: 12,
+    color: '#5F6368',
+    marginBottom: 8,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   timeInput: {
-    backgroundColor: '#2A2A2A',
-    borderRadius: 8,
-    width: 60,
-    height: 50,
+    backgroundColor: '#F5F7FA',
+    borderRadius: 12,
+    width: 72,
+    height: 64,
     textAlign: 'center',
-    fontSize: 24,
-    color: '#FFF',
-    fontWeight: '300',
+    fontSize: 32,
+    color: '#202124',
+    fontWeight: '600',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   timeSeparator: {
-    fontSize: 32,
-    color: '#666',
+    fontSize: 40,
+    color: '#5F6368',
     fontWeight: '300',
-    marginTop: 16,
+    marginTop: 20,
   },
   ampmContainer: {
     flexDirection: 'column',
-    gap: 4,
-    marginLeft: 8,
+    gap: 8,
+    marginLeft: 4,
   },
   ampmButton: {
-    backgroundColor: '#2A2A2A',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    minWidth: 45,
+    backgroundColor: '#F5F7FA',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    minWidth: 52,
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   ampmButtonActive: {
-    backgroundColor: '#6200EA',
+    backgroundColor: '#E8F4F8',
+    borderColor: '#0A7EA4',
   },
   ampmText: {
-    color: '#999',
-    fontSize: 13,
-    fontWeight: '600',
+    color: '#5F6368',
+    fontSize: 14,
+    fontWeight: '700',
   },
   ampmTextActive: {
-    color: '#FFF',
+    color: '#0A7EA4',
+  },
+  repeatContainer: {
+    marginBottom: 28,
+  },
+  repeatLabel: {
+    fontSize: 12,
+    color: '#5F6368',
+    marginBottom: 12,
+    textAlign: 'center',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  repeatOptions: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+  },
+  repeatButton: {
+    backgroundColor: '#F5F7FA',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    minWidth: 100,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  repeatButtonActive: {
+    backgroundColor: '#E8F4F8',
+    borderColor: '#0A7EA4',
+  },
+  repeatButtonText: {
+    color: '#5F6368',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  repeatButtonTextActive: {
+    color: '#0A7EA4',
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   button: {
     flex: 1,
-    padding: 14,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#F5F7FA',
   },
   cancelButtonText: {
-    color: '#999',
-    fontSize: 15,
-    fontWeight: '500',
+    color: '#5F6368',
+    fontSize: 16,
+    fontWeight: '700',
   },
   addButton: {
-    backgroundColor: '#6200EA',
+    backgroundColor: '#0A7EA4',
+    elevation: 2,
+    shadowColor: '#0A7EA4',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   addButtonText: {
     color: '#FFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
