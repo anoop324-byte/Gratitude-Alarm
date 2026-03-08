@@ -166,34 +166,44 @@ export default function Index() {
   };
 
   const handleAddAlarm = async () => {
-    const hours = selectedTime.getHours();
-    const minutes = selectedTime.getMinutes();
-    
-    // Convert to 12-hour format
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours % 12 || 12;
+    try {
+      const hours = selectedTime.getHours();
+      const minutes = selectedTime.getMinutes();
+      
+      // Convert to 12-hour format
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
 
-    const newAlarm: Alarm = {
-      id: Date.now().toString(),
-      time: formatTime(hours12, minutes, ampm),
-      hours: hours12,
-      minutes,
-      ampm,
-      enabled: true,
-    };
+      const newAlarm: Alarm = {
+        id: Date.now().toString(),
+        time: formatTime(hours12, minutes, ampm),
+        hours: hours12,
+        minutes,
+        ampm,
+        enabled: true,
+      };
 
-    const notificationId = await scheduleNotification(newAlarm);
-    newAlarm.notificationId = notificationId;
+      try {
+        const notificationId = await scheduleNotification(newAlarm);
+        newAlarm.notificationId = notificationId;
+      } catch (error) {
+        console.log('Notification scheduling not available (web platform)');
+        // On web, notifications don't work but we still save the alarm
+      }
 
-    const updatedAlarms = [...alarms, newAlarm].sort((a, b) => {
-      const aTime = convertTo24Hour(a.hours, a.ampm) * 60 + a.minutes;
-      const bTime = convertTo24Hour(b.hours, b.ampm) * 60 + b.minutes;
-      return aTime - bTime;
-    });
+      const updatedAlarms = [...alarms, newAlarm].sort((a, b) => {
+        const aTime = convertTo24Hour(a.hours, a.ampm) * 60 + a.minutes;
+        const bTime = convertTo24Hour(b.hours, b.ampm) * 60 + b.minutes;
+        return aTime - bTime;
+      });
 
-    await saveAlarms(updatedAlarms);
-    setModalVisible(false);
-    setSelectedTime(new Date());
+      await saveAlarms(updatedAlarms);
+      setModalVisible(false);
+      setSelectedTime(new Date());
+    } catch (error) {
+      console.error('Error adding alarm:', error);
+      Alert.alert('Error', 'Failed to add alarm. Please try again.');
+    }
   };
 
   const handleDeleteAlarm = async (alarm: Alarm) => {
@@ -206,11 +216,19 @@ export default function Index() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            if (alarm.notificationId) {
-              await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
+            try {
+              if (alarm.notificationId) {
+                try {
+                  await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
+                } catch (error) {
+                  console.log('Could not cancel notification (web platform)');
+                }
+              }
+              const updatedAlarms = alarms.filter(a => a.id !== alarm.id);
+              await saveAlarms(updatedAlarms);
+            } catch (error) {
+              console.error('Error deleting alarm:', error);
             }
-            const updatedAlarms = alarms.filter(a => a.id !== alarm.id);
-            await saveAlarms(updatedAlarms);
           },
         },
       ]
@@ -218,25 +236,41 @@ export default function Index() {
   };
 
   const handleToggleAlarm = async (alarm: Alarm) => {
-    let updatedAlarm = { ...alarm, enabled: !alarm.enabled };
+    try {
+      let updatedAlarm = { ...alarm, enabled: !alarm.enabled };
 
-    if (updatedAlarm.enabled) {
-      // Cancel old notification if exists
-      if (alarm.notificationId) {
-        await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
+      if (updatedAlarm.enabled) {
+        // Cancel old notification if exists
+        if (alarm.notificationId) {
+          try {
+            await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
+          } catch (error) {
+            console.log('Could not cancel notification (web platform)');
+          }
+        }
+        // Schedule new notification
+        try {
+          const notificationId = await scheduleNotification(updatedAlarm);
+          updatedAlarm.notificationId = notificationId;
+        } catch (error) {
+          console.log('Notification scheduling not available (web platform)');
+        }
+      } else {
+        // Cancel notification
+        if (alarm.notificationId) {
+          try {
+            await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
+          } catch (error) {
+            console.log('Could not cancel notification (web platform)');
+          }
+        }
       }
-      // Schedule new notification
-      const notificationId = await scheduleNotification(updatedAlarm);
-      updatedAlarm.notificationId = notificationId;
-    } else {
-      // Cancel notification
-      if (alarm.notificationId) {
-        await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
-      }
+
+      const updatedAlarms = alarms.map(a => (a.id === alarm.id ? updatedAlarm : a));
+      await saveAlarms(updatedAlarms);
+    } catch (error) {
+      console.error('Error toggling alarm:', error);
     }
-
-    const updatedAlarms = alarms.map(a => (a.id === alarm.id ? updatedAlarm : a));
-    await saveAlarms(updatedAlarms);
   };
 
   const onTimeChange = (event: any, selectedDate?: Date) => {
@@ -348,12 +382,14 @@ export default function Index() {
                   setShowTimePicker(false);
                   setSelectedTime(new Date());
                 }}
+                testID="cancel-button"
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.addButton]}
                 onPress={handleAddAlarm}
+                testID="add-alarm-button"
               >
                 <Text style={styles.addButtonText}>Add Alarm</Text>
               </TouchableOpacity>
