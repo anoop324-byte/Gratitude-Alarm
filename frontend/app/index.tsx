@@ -8,7 +8,7 @@ import {
   Modal,
   Platform,
   Alert,
-  ScrollView,
+  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -43,6 +43,9 @@ export default function Index() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [manualHours, setManualHours] = useState('10');
+  const [manualMinutes, setManualMinutes] = useState('00');
+  const [manualAMPM, setManualAMPM] = useState<'AM' | 'PM'>('AM');
 
   useEffect(() => {
     requestPermissions();
@@ -167,12 +170,20 @@ export default function Index() {
 
   const handleAddAlarm = async () => {
     try {
-      const hours = selectedTime.getHours();
-      const minutes = selectedTime.getMinutes();
-      
-      // Convert to 12-hour format
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const hours12 = hours % 12 || 12;
+      // Use manual inputs for time
+      const hours12 = parseInt(manualHours) || 10;
+      const minutes = parseInt(manualMinutes) || 0;
+      const ampm = manualAMPM;
+
+      // Validate input
+      if (hours12 < 1 || hours12 > 12) {
+        Alert.alert('Invalid Time', 'Hours must be between 1 and 12');
+        return;
+      }
+      if (minutes < 0 || minutes > 59) {
+        Alert.alert('Invalid Time', 'Minutes must be between 0 and 59');
+        return;
+      }
 
       const newAlarm: Alarm = {
         id: Date.now().toString(),
@@ -199,7 +210,12 @@ export default function Index() {
 
       await saveAlarms(updatedAlarms);
       setModalVisible(false);
-      setSelectedTime(new Date());
+      
+      // Reset to current time
+      const now = new Date();
+      setManualHours(String((now.getHours() % 12) || 12));
+      setManualMinutes(String(now.getMinutes()).padStart(2, '0'));
+      setManualAMPM(now.getHours() >= 12 ? 'PM' : 'AM');
     } catch (error) {
       console.error('Error adding alarm:', error);
       Alert.alert('Error', 'Failed to add alarm. Please try again.');
@@ -349,38 +365,76 @@ export default function Index() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add Alarm</Text>
             
-            <TouchableOpacity
-              style={styles.timeDisplay}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Ionicons name="time-outline" size={32} color="#6200EA" />
-              <Text style={styles.timeText}>
-                {selectedTime.toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  hour12: true,
-                })}
-              </Text>
-            </TouchableOpacity>
-
-            {(showTimePicker || Platform.OS === 'ios') && (
-              <DateTimePicker
-                value={selectedTime}
-                mode="time"
-                is24Hour={false}
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onTimeChange}
-                style={styles.timePicker}
-              />
-            )}
+            <View style={styles.timeInputContainer}>
+              <View style={styles.timeInputRow}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Hour</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={manualHours}
+                    onChangeText={(text) => {
+                      const num = text.replace(/[^0-9]/g, '');
+                      if (num === '' || (parseInt(num) >= 1 && parseInt(num) <= 12)) {
+                        setManualHours(num);
+                      }
+                    }}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="10"
+                    placeholderTextColor="#666"
+                  />
+                </View>
+                
+                <Text style={styles.timeSeparator}>:</Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Minute</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={manualMinutes}
+                    onChangeText={(text) => {
+                      const num = text.replace(/[^0-9]/g, '');
+                      if (num === '' || (parseInt(num) >= 0 && parseInt(num) <= 59)) {
+                        setManualMinutes(num.padStart(2, '0'));
+                      }
+                    }}
+                    keyboardType="numeric"
+                    maxLength={2}
+                    placeholder="00"
+                    placeholderTextColor="#666"
+                  />
+                </View>
+                
+                <View style={styles.ampmContainer}>
+                  <TouchableOpacity
+                    style={[styles.ampmButton, manualAMPM === 'AM' && styles.ampmButtonActive]}
+                    onPress={() => setManualAMPM('AM')}
+                  >
+                    <Text style={[styles.ampmText, manualAMPM === 'AM' && styles.ampmTextActive]}>
+                      AM
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.ampmButton, manualAMPM === 'PM' && styles.ampmButtonActive]}
+                    onPress={() => setManualAMPM('PM')}
+                  >
+                    <Text style={[styles.ampmText, manualAMPM === 'PM' && styles.ampmTextActive]}>
+                      PM
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
                 onPress={() => {
                   setModalVisible(false);
-                  setShowTimePicker(false);
-                  setSelectedTime(new Date());
+                  const now = new Date();
+                  setManualHours(String((now.getHours() % 12) || 12));
+                  setManualMinutes(String(now.getMinutes()).padStart(2, '0'));
+                  setManualAMPM(now.getHours() >= 12 ? 'PM' : 'AM');
                 }}
                 testID="cancel-button"
               >
@@ -528,23 +582,62 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  timeDisplay: {
+  timeInputContainer: {
+    marginBottom: 24,
+  },
+  timeInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    gap: 12,
+    gap: 8,
   },
-  timeText: {
-    fontSize: 28,
-    fontWeight: '300',
+  inputGroup: {
+    alignItems: 'center',
+  },
+  inputLabel: {
+    fontSize: 11,
+    color: '#999',
+    marginBottom: 4,
+  },
+  timeInput: {
+    backgroundColor: '#2A2A2A',
+    borderRadius: 8,
+    width: 60,
+    height: 50,
+    textAlign: 'center',
+    fontSize: 24,
     color: '#FFF',
+    fontWeight: '300',
   },
-  timePicker: {
-    marginBottom: 20,
+  timeSeparator: {
+    fontSize: 32,
+    color: '#666',
+    fontWeight: '300',
+    marginTop: 16,
+  },
+  ampmContainer: {
+    flexDirection: 'column',
+    gap: 4,
+    marginLeft: 8,
+  },
+  ampmButton: {
+    backgroundColor: '#2A2A2A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    minWidth: 45,
+    alignItems: 'center',
+  },
+  ampmButtonActive: {
+    backgroundColor: '#6200EA',
+  },
+  ampmText: {
+    color: '#999',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  ampmTextActive: {
+    color: '#FFF',
   },
   modalButtons: {
     flexDirection: 'row',
