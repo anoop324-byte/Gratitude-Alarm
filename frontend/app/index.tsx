@@ -400,7 +400,7 @@ export default function Index() {
       
       <View style={styles.header}>
         <View style={styles.logoContainer}>
-          <AppLogo size={56} color="#FFF" backgroundColor="rgba(255, 255, 255, 0.2)" />
+          <AppLogo size={56} />
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Gratitude Reminder</Text>
             <Text style={styles.headerSubtitle}>Silent vibration alarms</Text>
@@ -430,7 +430,7 @@ export default function Index() {
       {alarms.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
-            <AppLogo size={100} color="#0A7EA4" backgroundColor="white" />
+            <AppLogo size={100} />
           </View>
           <Text style={styles.emptyText}>No alarms yet</Text>
           <Text style={styles.emptySubtext}>Tap the + button below to create your first reminder</Text>
