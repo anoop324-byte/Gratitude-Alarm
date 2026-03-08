@@ -48,12 +48,62 @@ export default function Index() {
   const [manualMinutes, setManualMinutes] = useState('00');
   const [manualAMPM, setManualAMPM] = useState<'AM' | 'PM'>('AM');
   const [repeatAlarm, setRepeatAlarm] = useState(false);
+  const [masterEnabled, setMasterEnabled] = useState(true);
 
   useEffect(() => {
     requestPermissions();
     loadAlarms();
+    loadMasterSwitch();
     setupNotificationListener();
   }, []);
+
+  const loadMasterSwitch = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('master_enabled');
+      if (stored !== null) {
+        setMasterEnabled(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Error loading master switch:', error);
+    }
+  };
+
+  const handleMasterToggle = async () => {
+    const newState = !masterEnabled;
+    setMasterEnabled(newState);
+    
+    try {
+      await AsyncStorage.setItem('master_enabled', JSON.stringify(newState));
+      
+      if (!newState) {
+        // Master OFF - cancel all notifications
+        for (const alarm of alarms) {
+          if (alarm.notificationId) {
+            try {
+              await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
+            } catch (error) {
+              console.log('Could not cancel notification');
+            }
+          }
+        }
+      } else {
+        // Master ON - reschedule all enabled alarms
+        for (const alarm of alarms) {
+          if (alarm.enabled) {
+            try {
+              const notificationId = await scheduleNotification(alarm);
+              alarm.notificationId = notificationId;
+            } catch (error) {
+              console.log('Could not schedule notification');
+            }
+          }
+        }
+        await saveAlarms(alarms);
+      }
+    } catch (error) {
+      console.error('Error toggling master switch:', error);
+    }
+  };
 
   const requestPermissions = async () => {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -360,6 +410,25 @@ export default function Index() {
             <Text style={styles.headerSubtitle}>Silent vibration alarms</Text>
           </View>
         </View>
+        
+        <View style={styles.masterSwitchContainer}>
+          <View style={styles.masterSwitchLabel}>
+            <Ionicons 
+              name={masterEnabled ? "power" : "power-outline"} 
+              size={18} 
+              color="#FFF" 
+            />
+            <Text style={styles.masterSwitchText}>
+              {masterEnabled ? 'ON' : 'OFF'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.masterToggle, masterEnabled ? styles.masterToggleOn : styles.masterToggleOff]}
+            onPress={handleMasterToggle}
+          >
+            <View style={[styles.masterToggleThumb, masterEnabled && styles.masterToggleThumbOn]} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {alarms.length === 0 ? (
@@ -523,6 +592,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 16,
   },
   logoIcon: {
     width: 48,
@@ -545,6 +615,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
+  },
+  masterSwitchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  masterSwitchLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  masterSwitchText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  masterToggle: {
+    width: 56,
+    height: 32,
+    borderRadius: 16,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  masterToggleOff: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  masterToggleOn: {
+    backgroundColor: '#FFF',
+  },
+  masterToggleThumb: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#0A7EA4',
+  },
+  masterToggleThumbOn: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#0A7EA4',
   },
   emptyState: {
     flex: 1,
