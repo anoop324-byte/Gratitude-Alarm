@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import AppLogo from '../components/AppLogo';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -399,12 +400,7 @@ export default function Index() {
       
       <View style={styles.header}>
         <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <Ionicons name="time-outline" size={24} color="#FFF" />
-            <View style={{ position: 'absolute', bottom: 8, right: 8 }}>
-              <Ionicons name="radio-button-on" size={12} color="#FFF" />
-            </View>
-          </View>
+          <AppLogo size={56} showWave={true} color="#FFF" />
           <View style={styles.headerContent}>
             <Text style={styles.headerTitle}>Gratitude Reminder</Text>
             <Text style={styles.headerSubtitle}>Silent vibration alarms</Text>
@@ -434,7 +430,7 @@ export default function Index() {
       {alarms.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
-            <Ionicons name="alarm-outline" size={48} color="#0A7EA4" />
+            <AppLogo size={80} showWave={true} color="#0A7EA4" />
           </View>
           <Text style={styles.emptyText}>No alarms yet</Text>
           <Text style={styles.emptySubtext}>Tap the + button below to create your first reminder</Text>
@@ -594,14 +590,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 16,
   },
-  logoIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   headerContent: {
     flex: 1,
   },
@@ -666,12 +654,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#E8F4F8',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 20,
   },
   emptyText: {
