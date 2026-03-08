@@ -277,15 +277,17 @@ export default function Index() {
       <StatusBar style="light" />
       
       <View style={styles.header}>
+        <View style={styles.logoContainer}>
+          <Ionicons name="notifications-outline" size={28} color="#6200EA" />
+        </View>
         <Text style={styles.headerTitle}>Gratitude Reminder</Text>
-        <Text style={styles.headerSubtitle}>Silent vibration alarms</Text>
       </View>
 
       {alarms.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="alarm-outline" size={80} color="#666" />
-          <Text style={styles.emptyText}>No alarms set</Text>
-          <Text style={styles.emptySubtext}>Tap + to add your first reminder</Text>
+          <Ionicons name="alarm-outline" size={60} color="#444" />
+          <Text style={styles.emptyText}>No alarms</Text>
+          <Text style={styles.emptySubtext}>Tap + to add</Text>
         </View>
       ) : (
         <FlatList
@@ -366,23 +368,29 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#000',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
-    paddingHorizontal: 24,
-    backgroundColor: '#1E1E1E',
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#000',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  logoContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#1A1A1A',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#FFF',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#999',
   },
   emptyState: {
     flex: 1,
@@ -391,15 +399,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyText: {
-    fontSize: 20,
-    color: '#999',
-    marginTop: 16,
-    fontWeight: '600',
+    fontSize: 16,
+    color: '#666',
+    marginTop: 12,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
+    fontSize: 13,
+    color: '#444',
+    marginTop: 4,
   },
   alarmList: {
     padding: 16,
@@ -408,60 +415,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1E1E1E',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 12,
+    backgroundColor: '#1A1A1A',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 10,
   },
   alarmLeft: {
     flex: 1,
   },
   alarmTime: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '300',
     color: '#FFF',
-    letterSpacing: 1,
   },
   disabledText: {
-    color: '#666',
+    color: '#444',
   },
   alarmRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   toggle: {
-    width: 56,
-    height: 32,
-    borderRadius: 16,
+    width: 50,
+    height: 28,
+    borderRadius: 14,
     padding: 2,
     justifyContent: 'center',
   },
   toggleOff: {
-    backgroundColor: '#333',
+    backgroundColor: '#2A2A2A',
   },
   toggleOn: {
     backgroundColor: '#6200EA',
   },
   toggleThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#FFF',
   },
   toggleThumbOn: {
     alignSelf: 'flex-end',
   },
   deleteButton: {
-    padding: 8,
+    padding: 4,
   },
   fab: {
     position: 'absolute',
-    bottom: 32,
-    right: 32,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    bottom: 24,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#6200EA',
     justifyContent: 'center',
     alignItems: 'center',
@@ -469,66 +475,65 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    width: '85%',
-    backgroundColor: '#1E1E1E',
-    borderRadius: 24,
-    padding: 24,
+    width: '80%',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
+    padding: 20,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#FFF',
-    marginBottom: 24,
+    marginBottom: 20,
     textAlign: 'center',
   },
   timeDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2A2A2A',
-    padding: 24,
-    borderRadius: 16,
-    marginBottom: 24,
-    gap: 16,
+    backgroundColor: '#000',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 12,
   },
   timeText: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '300',
     color: '#FFF',
-    letterSpacing: 1,
   },
   timePicker: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   button: {
     flex: 1,
-    padding: 16,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#333',
+    backgroundColor: '#2A2A2A',
   },
   cancelButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#999',
+    fontSize: 15,
+    fontWeight: '500',
   },
   addButton: {
     backgroundColor: '#6200EA',
   },
   addButtonText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
 });
